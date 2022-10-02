@@ -18,7 +18,11 @@ inputs:
     required: true
   gitHubToken:
     description: "GitHub Token"
-    required: true
+    required: false
+  skipGitHubDeployment:
+    description: "Skip GitHub Deployment"
+    required: false
+    default: "true"
   branch:
     description: "The name of the branch you want to deploy to"
     required: false

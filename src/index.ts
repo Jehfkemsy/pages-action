@@ -1,4 +1,4 @@
-import { getInput, setOutput, setFailed } from "@actions/core";
+import { getInput, getBooleanInput, setOutput, setFailed } from "@actions/core";
 import { context, getOctokit } from "@actions/github";
 import shellac from "shellac";
 import { fetch } from "undici";
@@ -52,10 +52,21 @@ try {
   const accountId = getInput("accountId", { required: true });
   const projectName = getInput("projectName", { required: true });
   const directory = getInput("directory", { required: true });
-  const gitHubToken = getInput("gitHubToken", { required: true });
+  const gitHubToken = getInput("gitHubToken", { required: false });
   const branch = getInput("branch", { required: false });
+  const skipGitHubDeployment = getBooleanInput("skipGitHubDeployment", {
+    required: false,
+  });
 
-  const octokit = getOctokit(gitHubToken);
+  // TODO: clean this up a bit
+  let octokit;
+
+  const _getOctokit = () => {
+    if (gitHubToken && !octokit) {
+      octokit = getOctokit(gitHubToken);
+    }
+    return octokit;
+  };
 
   const createPagesDeployment = async () => {
     // TODO: Replace this with an API call to wrangler so we can get back a full deployment response object
@@ -80,7 +91,9 @@ try {
   };
 
   const createGitHubDeployment = async () => {
-    const deployment = await octokit.rest.repos.createDeployment({
+    const _octokit = _getOctokit();
+
+    const deployment = await _octokit.rest.repos.createDeployment({
       owner: context.repo.owner,
       repo: context.repo.repo,
       ref: context.ref,
@@ -105,7 +118,9 @@ try {
     environmentName: string;
     productionEnvironment: boolean;
   }) => {
-    await octokit.rest.repos.createDeploymentStatus({
+    const _octokit = _getOctokit();
+
+    await _octokit.rest.repos.createDeploymentStatus({
       owner: context.repo.owner,
       repo: context.repo.repo,
       deployment_id: id,
@@ -120,7 +135,11 @@ try {
   };
 
   (async () => {
-    const gitHubDeployment = await createGitHubDeployment();
+    let gitHubDeployment: Record<string, any> | undefined;
+
+    if (!skipGitHubDeployment) {
+      gitHubDeployment = await createGitHubDeployment();
+    }
 
     const pagesDeployment = await createPagesDeployment();
 
